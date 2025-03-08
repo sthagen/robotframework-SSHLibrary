@@ -642,7 +642,8 @@ class SSHLibrary:
         | # Check myserver.log for detailed debug information   |
         """
         if SSHClient.enable_logging(logfile):
-            self._log(f'SSH log is written to <a href="{logfile}">file</a>.', "HTML")
+            self._log(
+                f'SSH log is written to <a href="{logfile}">file</a>.', "HTML")
 
     @keyword(tags=("connection",))
     def open_connection(
@@ -1046,6 +1047,7 @@ class SSHLibrary:
         read_config=False,
         jumphost_index_or_alias=None,
         keep_alive_interval="0 seconds",
+        disabled_algorithms=None,
     ):
         """Logs into the SSH server with the given ``username`` and ``password``.
 
@@ -1082,6 +1084,11 @@ class SSHLibrary:
 
         ``keep_alive_interval`` is new in SSHLibrary 3.7.0.
 
+        ``disabled_algorithms`` is a list of algorithms that should be disabled.
+        For example, if you need to disable diffie-hellman-group16-sha512 key exchange 
+        (perhaps because your code talks to a server which implements it differently from Paramiko), 
+        specify disabled_algorithms={"kex": ["diffie-hellman-group16-sha512"]}
+
         Example that logs in and returns the output:
 
         | `Open Connection` | linux.server.com |
@@ -1104,6 +1111,12 @@ class SSHLibrary:
         First, add the key to the authentication agent with: ``ssh-add /path/to/keyfile``.
         | `Open Connection` | linux.server.com |
         | `Login` | johndoe | allow_agent=True |
+
+        Example login with disabled algorithms:
+        | `Open Connection` | linux.server.com |
+        | `VAR`             | @{pubkeys}             | rsa-sha2-512    rsa-sha2-256 |
+        | `VAR`             | &{disabled_algorithms} | pubkeys=${pubkeys} |
+        | `Login`           | username=johndoe       | disabled_algorithms=${disabled_algorithms} |
         """
         jumphost_connection_conf = (
             self.get_connection(index_or_alias=jumphost_index_or_alias)
@@ -1127,6 +1140,7 @@ class SSHLibrary:
             is_truthy(read_config),
             jumphost_connection,
             keep_alive_interval,
+            disabled_algorithms,
         )
 
     @keyword(tags=("login",))
@@ -1142,6 +1156,7 @@ class SSHLibrary:
         jumphost_index_or_alias=None,
         read_config=False,
         keep_alive_interval="0 seconds",
+        disabled_algorithms=None,
     ):
         """Logs into the SSH server using key-based authentication.
 
@@ -1196,6 +1211,17 @@ class SSHLibrary:
         set to ``0``, which means sending the ``keepalive`` packet is disabled.
 
         ``keep_alive_interval`` is new in SSHLibrary 3.7.0.
+
+        ``disabled_algorithms`` is a list of algorithms that should be disabled.
+        For example, if you need to disable diffie-hellman-group16-sha512 key exchange 
+        (perhaps because your code talks to a server which implements it differently from Paramiko), 
+        specify disabled_algorithms={"kex": ["diffie-hellman-group16-sha512"]}
+
+        Example login with disabled algorithms:
+        | `Open Connection`       | linux.server.com |
+        | `VAR`                   | @{pubkeys}             | rsa-sha2-512    rsa-sha2-256 |
+        | `VAR`                   | &{disabled_algorithms} | pubkeys=${pubkeys} |
+        | `Login With Public Key` | username=johndoe       | keyfile=key | disabled_algorithms=${disabled_algorithms} |
         """
         if proxy_cmd and jumphost_index_or_alias:
             raise ValueError(
@@ -1223,6 +1249,7 @@ class SSHLibrary:
             jumphost_connection,
             is_truthy(read_config),
             keep_alive_interval,
+            disabled_algorithms,
         )
 
     def _login(self, login_method, username, *args):
@@ -1356,8 +1383,10 @@ class SSHLibrary:
         if not is_truthy(sudo):
             self._log(f"Executing command '{command}'.", self._config.loglevel)
         else:
-            self._log(f"Executing command 'sudo {command}'.", self._config.loglevel)
-        opts = self._legacy_output_options(return_stdout, return_stderr, return_rc)
+            self._log(
+                f"Executing command 'sudo {command}'.", self._config.loglevel)
+        opts = self._legacy_output_options(
+            return_stdout, return_stderr, return_rc)
         stdout, stderr, rc = self.current.execute_command(
             command,
             sudo,
@@ -1424,7 +1453,8 @@ class SSHLibrary:
         if not is_truthy(sudo):
             self._log(f"Starting command '{command}'.", self._config.loglevel)
         else:
-            self._log(f"Starting command 'sudo {command}'.", self._config.loglevel)
+            self._log(
+                f"Starting command 'sudo {command}'.", self._config.loglevel)
         if self.current.config.index not in self._last_commands.keys():
             self._last_commands[self.current.config.index] = command
         else:
@@ -1493,9 +1523,11 @@ class SSHLibrary:
             f"Reading output of command '{self._last_commands.get(self.current.config.index)}'.",
             self._config.loglevel,
         )
-        opts = self._legacy_output_options(return_stdout, return_stderr, return_rc)
+        opts = self._legacy_output_options(
+            return_stdout, return_stderr, return_rc)
         try:
-            stdout, stderr, rc = self.current.read_command_output(timeout=timeout)
+            stdout, stderr, rc = self.current.read_command_output(
+                timeout=timeout)
         except SSHClientException as msg:
             raise RuntimeError(msg)
         return self._return_command_output(stdout, stderr, rc, *opts)
@@ -1549,7 +1581,8 @@ class SSHLibrary:
     def _return_command_output(
         self, stdout, stderr, rc, return_stdout, return_stderr, return_rc
     ):
-        self._log(f"Command exited with return code {rc}.", self._config.loglevel)
+        self._log(
+            f"Command exited with return code {rc}.", self._config.loglevel)
         ret = []
         if is_truthy(return_stdout):
             ret.append(stdout.rstrip("\n"))
@@ -1565,14 +1598,14 @@ class SSHLibrary:
     def write(self, text, loglevel=None):
         """Writes the given ``text`` on the remote machine and appends a newline.
 
-        Appended `newline` can be configured.
-
         This keyword returns and consumes the written ``text``
         (including the appended newline) from the server output. See the
         `Interactive shells` section for more information.
 
         The written ``text`` is logged. ``loglevel`` can be used to override
         the default `log level`.
+
+        If the written text cannot be read from shell, `None` is returned.
 
         Example:
         | ${written}=          | `Write`         | su                         |
@@ -1587,27 +1620,34 @@ class SSHLibrary:
         See also `Write Bare`.
         """
         self._write(text, add_newline=True)
-        return self._read_and_log(loglevel, self.current.read_until_newline)
+
+        try:
+            return self._read_and_log(loglevel, self.current.read_until_newline)
+        except Exception as e:
+            logger.warn(e)
+            return None
 
     @keyword(tags=("command",))
-    def write_bare(self, text):
+    def write_bare(self, text, add_newline=False):
         """Writes the given ``text`` on the remote machine without appending a newline.
 
         Unlike `Write`, this keyword returns and consumes nothing. See the
         `Interactive shells` section for more information.
 
+        Appended `newline` can be configured with `add_newline`.
+
         Example:
-        | `Write Bare`     | su\\n            |
+        | `Write Bare`     | su\\n            | # or instead of \\n: add_newline=True
         | ${output}=       | `Read`           |
         | `Should Contain` | ${output}        | su                         | # Was not consumed from output |
         | `Should Contain` | ${output}        | Password:                  |
-        | `Write Bare`     | invalidpasswd\\n |
+        | `Write Bare`     | invalidpasswd\\n | # or instead of \\n: add_newline=True
         | ${output}=       | `Read`           |
         | `Should Contain` | ${output}        | su: Authentication failure |
 
         See also `Write`.
         """
-        self._write(text)
+        self._write(text, add_newline)
 
     def _write(self, text, add_newline=False):
         try:
@@ -2193,7 +2233,6 @@ class SSHLibrary:
             files = self.current.list_files_in_dir(path, pattern, absolute)
         except SSHClientException as msg:
             raise RuntimeError(msg)
-        files = self.current.list_files_in_dir(path, pattern, absolute)
         self._log(
             "{0} file{1}:\n{2}".format(
                 len(files), plural_or_not(files), "\n".join(files)
@@ -2206,7 +2245,8 @@ class SSHLibrary:
     def list_directories_in_directory(self, path, pattern=None, absolute=False):
         """A wrapper for `List Directory` that returns only directories."""
         try:
-            dirs = self.current.list_dirs_in_dir(path, pattern, is_truthy(absolute))
+            dirs = self.current.list_dirs_in_dir(
+                path, pattern, is_truthy(absolute))
         except SSHClientException as msg:
             raise RuntimeError(msg)
         self._log(

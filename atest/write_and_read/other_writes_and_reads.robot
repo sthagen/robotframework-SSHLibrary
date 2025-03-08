@@ -17,8 +17,8 @@ Write And Read Until
     Should Contain    ${output}    Hello Mr. Ääkkönen
 
 Write And Read Until Prompt
-    Write    ${REMOTE TEST ROOT}/${INTERACTIVE TEST SCRIPT NAME}
-    Write    Mr. Ääkkönen
+    Write Bare    ${REMOTE TEST ROOT}/${INTERACTIVE TEST SCRIPT NAME}    add_newline=True
+    Write Bare    Mr. Ääkkönen    add_newline=True
     ${output} =    Read Until Prompt
     Should Contain    ${output}    Hello Mr. Ääkkönen
 
@@ -26,7 +26,7 @@ Write And Read Until Regexp
     Write    ${REMOTE TEST ROOT}/${INTERACTIVE TEST SCRIPT NAME}
     ${output} =    Read Until Regexp    Give.*\\?
     Should Contain    ${output}    Give your name?
-    Write    Mr. Ääkkönen
+    Write Bare    Mr. Ääkkönen    add_newline=True
     Comment    Prompt needs to be escaped because it might be $
     ${output} =    Read Until Regexp    (?s).*\\${PROMPT}
     Should Contain    ${output}    Hello Mr. Ääkkönen
@@ -42,8 +42,13 @@ Write Bare Non-String
     ${output} =    Read Until Prompt
     Should Contain    ${output}    False
 
+Write Bare Add New Line Non-String
+    Write Bare    ${False}    add_newline=True
+    ${output} =    Read Until Prompt
+    Should Contain    ${output}    False
+
 Write In Case Of Timeout
-    Write    Foo Bar And Some Other
+    Write Bare    Foo Bar And Some Other    add_newline=True
     Set Client Configuration    timeout=1
     ${status}    ${error} =    Run Keyword And Ignore Error
     ...    Read Until    This is not found
@@ -52,15 +57,15 @@ Write In Case Of Timeout
 Write Returning Stderr
     Write    ${REMOTE TEST ROOT}/${INTERACTIVE TEST SCRIPT NAME}
     Read Until    Give your name?
-    Write    Error
+    Write Bare    Error    add_newline=True
     ${output} =    Read Until    ${PROMPT}
     Should Contain    ${output}    Hello Error
     Should Contain    ${output}    This is Error
 
 Write Bare And Read Until
-    Write Bare    ${REMOTE TEST ROOT}/${INTERACTIVE TEST SCRIPT NAME}\n
+    Write Bare    ${REMOTE TEST ROOT}/${INTERACTIVE TEST SCRIPT NAME}    add_newline=True
     ${output} =    Read Until    name?
-    Write Bare    Mr. Ääkkönen\n
+    Write Bare    Mr. Ääkkönen    add_newline=True
     ${output2} =    Read Until Prompt
     Should Contain    ${output}    Give your name?
     Should Contain    ${output2}    Hello Mr. Ääkkönen
@@ -78,14 +83,14 @@ Write Until Expected Output In Case Of Timeout
     [Teardown]    Execute Command    rm -f ${COUNTER NAME}
 
 Read Until Prompt With Strip Prompt
-    Write    echo This is a test
+    Write Bare    echo This is a test    add_newline=True
     ${output} =    Read Until Prompt    strip_prompt=True
     Should Contain    ${output}    This is a test
     Should Not Contain    ${output}    ${PROMPT}
 
 Read Until REGEXP Prompt With Strip Prompt
     Set Client Configuration    prompt=REGEXP:[#$]
-    Write    echo This is a test
+    Write Bare    echo This is a test    add_newline=True
     ${output} =    Read Until Prompt    strip_prompt=True
     Should Contain    ${output}    This is a test
     Should Not Match Regexp    ${output}    [#$]
@@ -102,24 +107,32 @@ Configure Session Width And Height
     [Teardown]    Set Client Configuration    height=24    width=80
 
 Read Until With Encoding Errors On Strict
-    Write    cat ${REMOTE TEST ROOT}/${CORRUPTED FILE NAME}
-    Run Keyword And Expect Error    *codec can't decode byte*    Read Until    Hello
+    Write Bare    cat ${REMOTE TEST ROOT}/${CORRUPTED FILE NAME}    add_newline=True
+    GROUP    Read output from "cat" command
+        TRY
+            # "Hello" is at the end of the corrupted file
+            Read Until    Hello
+            Fail    READ UNTIL should have failed with expected error
+        EXCEPT    *codec can't decode byte*    type=GLOB    AS    ${error_message}
+            Log    Write command failed with expected error: ${error_message}
+        END
+    END
 
 Read Until With Encoding Errors On Replace
     Set Client Configuration    encoding_errors=replace
-    Write    cat ${REMOTE TEST ROOT}/${CORRUPTED FILE NAME}
+    Write Bare    cat ${REMOTE TEST ROOT}/${CORRUPTED FILE NAME}    add_newline=True
     ${output} =    Read Until    Hello
     Should Contain    ${output}    Hello
 
 Read Until With Encoding Errors On Ignore
     Set Client Configuration    encoding_errors=ignore
-    Write    cat ${REMOTE TEST ROOT}/${CORRUPTED FILE NAME}
+    Write Bare    cat ${REMOTE TEST ROOT}/${CORRUPTED FILE NAME}    add_newline=True
     ${output} =    Read Until    Hello
     Should Contain    ${output}    Hello
 
 Read Until With Encoding Errors Set In Open Connection
     [Setup]    Run Keywords    Open Connection    ${HOST}    prompt=${PROMPT}    encoding_errors=replace    AND
     ...    Login    ${USERNAME}    ${PASSWORD}
-    Write    cat ${REMOTE TEST ROOT}/${CORRUPTED FILE NAME}
+    Write Bare    cat ${REMOTE TEST ROOT}/${CORRUPTED FILE NAME}    add_newline=True
     ${output} =    Read Until    Hello
     Should Contain    ${output}    Hello
