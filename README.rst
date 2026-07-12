@@ -14,6 +14,13 @@
      - |_github_commits_since_release|
      - |_github_last_commit|
 
+Where is version 4.0?
+===============
+See Milestone 4.0: https://github.com/MarketSquare/SSHLibrary/milestone/25
+
+If you want to assist in accelerating the next release, consider contributing.
+
+
 SSHLibrary
 ===============
 
